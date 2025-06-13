@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("DoacoesONG")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+60a0cd9ddc909350701a416150f2e4cfe5d68dad")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+2ec8140b272876a0ede7a9db5cab8d93b06cf52e")]
 [assembly: System.Reflection.AssemblyProductAttribute("DoacoesONG")]
 [assembly: System.Reflection.AssemblyTitleAttribute("DoacoesONG")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
