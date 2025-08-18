@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
+using System.Security.Claims;
 using System.Text;
 using Infrastructure.Data;
 using Domain.Interfaces;
@@ -13,47 +14,74 @@ var builder = WebApplication.CreateBuilder(args);
 
 // --- Adicionar serviços ao contêiner ---
 
-// 1. Configuração do DbContext
+// 1. Configuração do DbContext com SQLite (do nosso projeto)
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseSqlite(builder.Configuration.GetConnectionString("DefaultConnection")));
 
-// 2. Injeção de Dependência
+// 2. Injeção de Dependência (do nosso projeto)
 builder.Services.AddScoped<IAuthRepository, AuthRepository>();
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 
-builder.Services.AddControllers();
-
-// 3. Configuração da Autenticação JWT
-builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-    .AddJwtBearer(options =>
+// 3. Configuração do CORS (adaptado do outro projeto)
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowFrontend", policy =>
     {
-        var tokenKey = builder.Configuration.GetSection("AppSettings:Token").Value;
-        if (string.IsNullOrEmpty(tokenKey))
-        {
-            throw new InvalidOperationException("A chave do token não está configurada em appsettings.json");
-        }
-        
-        options.TokenValidationParameters = new TokenValidationParameters
-        {
-            ValidateIssuerSigningKey = true,
-            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(tokenKey)),
-            ValidateIssuer = false,
-            ValidateAudience = false
-        };
+        policy.WithOrigins("http://localhost:3000") // Permite apenas o seu frontend
+              .AllowAnyHeader()
+              .AllowAnyMethod();
     });
+});
 
-// 4. Configuração do Swagger com Autorização
+builder.Services.AddControllers();
+builder.Services.AddAuthorization(); // Adicionado do outro projeto
 builder.Services.AddEndpointsApiExplorer();
+
+// 4. Configuração da Autenticação JWT (combinação de ambos)
+builder.Services.AddAuthentication(options =>
+{
+    options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+    options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+})
+.AddJwtBearer(options =>
+{
+    var tokenKey = builder.Configuration.GetSection("AppSettings:Token").Value;
+    if (string.IsNullOrEmpty(tokenKey))
+    {
+        throw new InvalidOperationException("A chave do token não está configurada em appsettings.json");
+    }
+
+    options.RequireHttpsMetadata = false;
+    options.SaveToken = true;
+    options.TokenValidationParameters = new TokenValidationParameters
+    {
+        ValidateIssuerSigningKey = true,
+        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(tokenKey)),
+        ValidateIssuer = false,
+        ValidateAudience = false,
+        RoleClaimType = ClaimTypes.Role // A correção crucial para a autorização
+    };
+});
+
+// 5. Configuração do Swagger (do outro projeto, mais detalhado)
 builder.Services.AddSwaggerGen(options =>
 {
+    options.SwaggerDoc("v1", new OpenApiInfo
+    {
+        Title = "API Doação - Instituto Maria Claro",
+        Version = "v1",
+        Description = "API para o sistema de doações e gerenciamento de usuários.",
+    });
+
     options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
     {
         In = ParameterLocation.Header,
-        Description = "Por favor, insira 'Bearer' seguido de um espaço e o seu token JWT",
         Name = "Authorization",
-        Type = SecuritySchemeType.ApiKey,
-        Scheme = "Bearer"
+        Type = SecuritySchemeType.Http,
+        BearerFormat = "JWT",
+        Scheme = "bearer",
+        Description = "Insira 'Bearer' [espaço] e o seu token JWT."
     });
 
     options.AddSecurityRequirement(new OpenApiSecurityRequirement
@@ -78,20 +106,20 @@ var app = builder.Build();
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
-    app.UseSwaggerUI();
+    app.UseSwaggerUI(options =>
+    {
+        // Mostra a UI do Swagger na raiz da aplicação (http://localhost:porta/)
+        options.SwaggerEndpoint("/swagger/v1/swagger.json", "API Doação v1");
+        options.RoutePrefix = string.Empty;
+    });
 }
 
-// A LINHA ABAIXO FOI REMOVIDA OU COMENTADA
-// app.UseHttpsRedirection();
+// app.UseHttpsRedirection(); // Mantemos comentado para desenvolvimento local
 
-// --- INÍCIO DA CORREÇÃO ---
-// A ORDEM DESTAS DUAS LINHAS É CRUCIAL
-
-app.UseAuthentication(); // 1º: Identifica quem é o usuário
-app.UseAuthorization();  // 2º: Verifica o que o usuário identificado pode fazer
-
-// --- FIM DA CORREÇÃO ---
+// Ordem correta e final do pipeline
+app.UseCors("AllowFrontend"); // Ativa a política de CORS
+app.UseAuthentication();
+app.UseAuthorization();
 
 app.MapControllers();
-
 app.Run();
