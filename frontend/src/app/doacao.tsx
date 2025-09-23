@@ -23,7 +23,7 @@ const Doacao: React.FC = () => {
       <div className="doacao-content">
         {/* QR Code */}
 <div className="qr-container">
-<img src="/pix-qrcode.png" alt="QR Code Pix" className="qr-image" />
+<img src="/img/pix-qrcode.png" alt="QR Code Pix" className="qr-image" />
 </div>
  
         {/* Lado direito */}
