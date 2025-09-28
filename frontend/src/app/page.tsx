@@ -1,25 +1,18 @@
+import React from "react";
 import { Header } from "@/components/layout/Header";
-
+import DonationForm from "../components/doacao/DonationForm";
+import DashboardUsuarios from "../components/Dashboard/dashboard";
+import "@/app/globals.css"; // Certifique-se de que o caminho está correto
+import Perfil from "../components/Perfil/Profile";
+import Dashboard from "../components/Dashboard/dashboard";
+import { LoginForm } from "@/components/auth/LoginForm";
+import RegisterForm from "@/components/auth/RegisterForm";
 export default function HomePage() {
   return (
-    <div>
+    <>
       <Header />
-      <main style={{
-        display: 'flex',
-        flexDirection: 'column',
-        justifyContent: 'center',
-        alignItems: 'center',
-        minHeight: '80vh',
-        textAlign: 'center'
-      }}>
-        <h1 style={{ fontSize: '2.5rem', fontWeight: 'bold' }}>
-          Bem-vindo ao Sistema de Doações
-        </h1>
-        <p style={{ fontSize: '1.2rem', marginTop: '1rem' }}>
-          Faça o login para continuar.
-        </p>
-      </main>
-    </div>
+      <RegisterForm/>
+    </>
   );
 }
 

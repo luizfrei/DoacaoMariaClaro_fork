@@ -1,76 +1,97 @@
-'use client';
-
-import React, { useState, useContext } from 'react';
-import { FaEye, FaEyeSlash } from 'react-icons/fa';
-import { AuthContext } from '@/contexts/AuthContext';
+"use client";
+import React, { useState } from "react";
 import { useRouter } from 'next/navigation';
-import styles from './AuthForms.module.css';
+import { AxiosError } from "axios";
+import { FaEye, FaEyeSlash } from 'react-icons/fa'; // Importando os ícones de olho
 
-export function LoginForm() {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [isPasswordVisible, setIsPasswordVisible] = useState(false);
+import { loginRequest } from "@/services/authService";
+import type { UserLoginDto } from "@/types/user";
+
+// Reutilizando o CSS do RegisterForm para manter a consistência visual
+import "./RegisterForm.css";
+// Adicionando um CSS específico para pequenas adaptações do login, como o ícone
+import "./LoginForm.css";
+
+const LoginForm: React.FC = () => {
+  const [email, setEmail] = useState("");
+  const [senha, setSenha] = useState("");
   const [error, setError] = useState<string | null>(null);
-
-   const { signIn } = useContext(AuthContext);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isPasswordVisible, setIsPasswordVisible] = useState(false); // Estado para o ícone do olho
   const router = useRouter();
 
   const togglePasswordVisibility = () => {
     setIsPasswordVisible(!isPasswordVisible);
   };
 
-  // --- FUNÇÃO FALTANTE ADICIONADA AQUI ---
-  // Esta função é chamada quando o formulário é submetido.
-  const handleSubmit = async (event: React.FormEvent) => {
-    event.preventDefault(); // Impede que a página recarregue
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
     setError(null);
+    setIsLoading(true);
+
+    const loginData: UserLoginDto = { email, senha };
+
     try {
-      await signIn({ email, senha: password });
-      // Redireciona para o perfil após o login bem-sucedido
-      router.push('/doador/perfil'); 
+      const { token } = await loginRequest(loginData);
+      // Aqui você integraria com seu AuthContext para salvar o token
+      alert("Login realizado com sucesso!");
+      router.push('/doador/perfil');
+
     } catch (err) {
-      setError('Email ou senha inválidos. Tente novamente.');
-      console.error(err);
+      if (err instanceof AxiosError && err.response) {
+        setError(err.response.data || "Credenciais inválidas.");
+      } else {
+        setError("Não foi possível conectar ao servidor.");
+        console.error(err);
+      }
+    } finally {
+      setIsLoading(false);
     }
   };
 
   return (
-    <div className={styles.authCard}>
-      <h2 className={styles.cardTitle}>Login</h2>
-      {/* O onSubmit agora encontra a função handleSubmit */}
-      <form onSubmit={handleSubmit}>
-        <input 
-          type="email" 
-          placeholder="Insira seu e-mail" 
-          className={styles.input}
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          required
-        />
-        
-        <div className={styles.inputWrapper}>
-          <input 
-            type={isPasswordVisible ? 'text' : 'password'} 
-            placeholder="Insira sua senha" 
-            className={styles.input}
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
+    // Usando a mesma estrutura base do RegisterForm
+    <div className="cadastro-container">
+      <header className="topbar">Doação</header>
+      <div className="form-box">
+        <h2>Login</h2>
+        <form onSubmit={handleSubmit}>
+          <input
+            type="email"
+            placeholder="Insira seu e-mail"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
             required
+            disabled={isLoading}
           />
-          <span className={styles.passwordIcon} onClick={togglePasswordVisibility}>
-            {isPasswordVisible ? <FaEyeSlash /> : <FaEye />}
-          </span>
-        </div>
 
-        {error && <p style={{ color: 'red', fontSize: '14px' }}>{error}</p>}
+          {/* Div para agrupar o input de senha e o ícone */}
+          <div className="input-wrapper">
+            <input
+              type={isPasswordVisible ? 'text' : 'password'}
+              placeholder="Insira sua senha"
+              value={senha}
+              onChange={(e) => setSenha(e.target.value)}
+              required
+              disabled={isLoading}
+            />
+            <span className="password-icon" onClick={togglePasswordVisibility}>
+              {isPasswordVisible ? <FaEyeSlash /> : <FaEye />}
+            </span>
+          </div>
 
-        <button type="submit" className={styles.button}>
-          Entrar
-        </button>
-      </form>
-      <a href="#" className={styles.link}>
-        Esqueci minha senha
-      </a>
+          {error && <p className="error-message">{error}</p>}
+
+          <button type="submit" disabled={isLoading}>
+            {isLoading ? 'Entrando...' : 'Entrar'}
+          </button>
+        </form>
+        <a href="#" className="forgot-password-link">
+          Esqueci minha senha
+        </a>
+      </div>
     </div>
   );
-}
+};
+
+export default LoginForm;
