@@ -121,7 +121,7 @@ body {
   display: flex;
   gap: 15px;
   margin-top: 20px;
-  justify-content: flex-end; /* Alinha os botões à direita */
+  justify-content: center; /* Alinha os botões à direita */
 }
 
 .actions button {

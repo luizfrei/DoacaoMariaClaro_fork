@@ -35,9 +35,6 @@ const Profile: React.FC = () => {
   }, []); // O array vazio garante que a busca ocorre apenas uma vez
 
   // 3. Mova as funções para cá
-  const handleEdit = () => {
-    alert('Funcionalidade de editar a ser implementada.');
-  };
 
   const handleDelete = async () => {
     if (user && window.confirm("Tem certeza que deseja deletar sua conta? Esta ação é irreversível.")) {
@@ -82,11 +79,12 @@ const Profile: React.FC = () => {
                 <span>{user.tipoUsuario}</span>
               </div>
             </div>
-            <div className="actions">
-              <button className="edit-button" onClick={handleEdit}>Editar Perfil</button>
+            {/* <div className="actions">
               <button className="delete-button" onClick={handleDelete}>Deletar Conta</button>
-            </div>
+            </div> */}
           </div>
+
+          <br></br>
 
           <div className="card">
             <h2 className="card-title">Histórico de Doações</h2>

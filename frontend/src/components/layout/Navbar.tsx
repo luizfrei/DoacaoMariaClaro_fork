@@ -93,7 +93,7 @@ const Navbar: React.FC = () => {
             <li><Link href="https://mariaclaro.org.br/contato">Contato</Link></li>
           </ul>
         </nav>
-
+        
         <div className="navbar-actions">
           <div className="social-icons">
             <a href="https://www.facebook.com/institutomariaclaro" target="_blank" rel="noopener noreferrer"><FaFacebookF /></a>
