@@ -51,7 +51,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     destroyCookie(undefined, 'doacao.token');
     delete api.defaults.headers['Authorization'];
     setUser(null);
-    router.push('/login');
+    window.location.href = '/login';
   }
 
   return (
