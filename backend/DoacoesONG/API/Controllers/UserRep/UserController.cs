@@ -1,120 +1,188 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
 using System.Threading.Tasks;
-using Application.Interfaces; // Namespace da sua IUserService
-using API.DTOs.UserRep;             // Namespace dos seus DTOs
+using Application.Interfaces;
+using API.DTOs.UserRep;
+using Infrastructure.Data;
+using System.Linq;
+using Domain.Entities; // Required for Enums
+using System; // Required for Enum.TryParse
+using System.Collections.Generic; // Required for List
 
-namespace API.Controllers.UserRep // Ajuste para o seu namespace
+namespace API.Controllers.UserRep
 {
+    // --- DTO para Resultado Paginado ---
+    public class PagedResult<T>
+    {
+        public List<T> Items { get; set; } = new List<T>();
+        public int TotalCount { get; set; }
+    }
+    // --- FIM DO DTO ---
+
     [ApiController]
     [Route("api/[controller]")]
-    // Apenas Admins podem acessar estes endpoints (Atualizar isso depois!!!!)
     public class UsersController : ControllerBase
     {
         private readonly IUserService _userService;
+        private readonly AppDbContext _context; // Inject DbContext para consulta direta
 
-        public UsersController(IUserService userService)
+        public UsersController(IUserService userService, AppDbContext context)
         {
             _userService = userService;
+            _context = context;
         }
 
         /// <summary>
-        /// Obtém uma lista de todos os usuários cadastrados.
+        /// Obtém uma lista paginada e filtrada de usuários.
         /// </summary>
+        /// <param name="pageNumber">Número da página (começando em 1).</param>
+        /// <param name="pageSize">Quantidade de itens por página.</param>
+        /// <param name="search">Termo para buscar em Nome, Email ou ID.</param>
+        /// <param name="role">Filtra pelo papel do usuário (Doador, Colaborador, Administrador).</param>
+        /// <param name="tipoPessoa">Filtra pelo tipo de pessoa (Fisica, Juridica).</param>
+        /// <response code="200">Retorna a lista paginada de usuários.</response>
+        /// <response code="401">Usuário não autenticado.</response>
+        /// <response code="403">Usuário não autorizado.</response>
         [Authorize(Roles = "Administrador, Colaborador")]
         [HttpGet]
-        [ProducesResponseType(typeof(IEnumerable<UserDto>), StatusCodes.Status200OK)]
-        public async Task<IActionResult> GetAllUsers()
+        [ProducesResponseType(typeof(PagedResult<UserDto>), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(StatusCodes.Status403Forbidden)]
+        public async Task<IActionResult> GetAllUsers(
+            [FromQuery] int pageNumber = 1,
+            [FromQuery] int pageSize = 20,
+            [FromQuery] string? search = null, // Filtro de busca
+            [FromQuery] string? role = null, // Filtro de papel
+            [FromQuery] string? tipoPessoa = null // Filtro de tipo pessoa
+        )
         {
-            var users = await _userService.GetAllUsersAsync();
-            return Ok(users);
+            if (pageNumber < 1) pageNumber = 1;
+            if (pageSize < 1) pageSize = 20;
+            if (pageSize > 100) pageSize = 100; // Limite
+
+            // --- APLICAÇÃO DOS FILTROS ---
+            var query = _context.Users.AsQueryable(); // Começa consulta
+
+            // Filtro de Busca (Nome, Email, ID) - Case-insensitive
+            if (!string.IsNullOrWhiteSpace(search))
+            {
+                var searchTermLower = search.ToLower().Trim();
+                query = query.Where(u =>
+                    EF.Functions.Like(u.Nome.ToLower(), $"%{searchTermLower}%") || // Usa Like para contains
+                    EF.Functions.Like(u.Email.ToLower(), $"%{searchTermLower}%") ||
+                    u.Id.ToString() == searchTermLower // Compara ID como string
+                );
+            }
+
+            // Filtro de Papel (Role) - Case-insensitive
+            if (!string.IsNullOrWhiteSpace(role) && Enum.TryParse<TipoUsuario>(role, true, out var roleEnum))
+            {
+                query = query.Where(u => u.TipoUsuario == roleEnum);
+            }
+
+            // Filtro de Tipo de Pessoa - Case-insensitive
+            if (!string.IsNullOrWhiteSpace(tipoPessoa) && Enum.TryParse<TipoPessoa>(tipoPessoa, true, out var tipoPessoaEnum))
+            {
+                // Inclui usuários onde TipoPessoa é null se o filtro não for específico
+                // query = query.Where(u => u.TipoPessoa == tipoPessoaEnum); // Versão anterior
+                query = query.Where(u => u.TipoPessoa.HasValue && u.TipoPessoa.Value == tipoPessoaEnum); // Garante que não seja nulo
+            }
+            // --- FIM DA APLICAÇÃO DOS FILTROS ---
+
+            // Conta o total DEPOIS de aplicar os filtros
+            var totalUsers = await query.CountAsync();
+
+            // Aplica ordenação, paginação e projeção (Select para DTO)
+            var users = await query
+                .OrderBy(u => u.Nome) // Ordena por nome
+                .Skip((pageNumber - 1) * pageSize) // Pula páginas anteriores
+                .Take(pageSize) // Pega a quantidade da página atual
+                .Select(user => new UserDto // Mapeia para o DTO de resposta
+                {
+                    Id = user.Id,
+                    Nome = user.Nome,
+                    Email = user.Email,
+                    TipoUsuario = user.TipoUsuario.ToString(),
+                    TipoPessoa = user.TipoPessoa.HasValue ? user.TipoPessoa.Value.ToString() : null, // Converte Enum? para string?
+                    Documento = user.Documento // Assume que documento já está limpo no DB
+                })
+                .ToListAsync();
+
+            // Monta o resultado paginado
+            var result = new PagedResult<UserDto>
+            {
+                Items = users,
+                TotalCount = totalUsers
+            };
+
+            return Ok(result); // Retorna 200 OK com os dados
         }
 
+        // --- Outros endpoints (GetMyProfile, GetUserById, UpdateUser, UpdateUserRole, DeleteUser) ---
+        // Manter os atributos [ProducesResponseType] neles como na resposta anterior
+
         [Authorize]
-        [HttpGet("me")] // Rota especial: GET /api/user/me
+        [HttpGet("me")]
         [ProducesResponseType(typeof(UserDto), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         public async Task<IActionResult> GetMyProfile()
         {
-            // 1. Pega o ID do usuário que está no token JWT.
-            // O '?' é para segurança, caso a claim não exista.
             var userIdString = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-
-            // 2. Se por algum motivo o ID não estiver no token, retorna um erro.
-            if (string.IsNullOrEmpty(userIdString))
+            if (string.IsNullOrEmpty(userIdString) || !int.TryParse(userIdString, out var userId))
             {
                 return Unauthorized("ID do usuário não encontrado no token.");
             }
-
-            // Converte o ID de string para int
-            var userId = int.Parse(userIdString);
-
-            // 3. Reutiliza o serviço que você já tem para buscar o usuário pelo ID.
             var user = await _userService.GetUserByIdAsync(userId);
-
-            if (user == null)
-            {
-                return NotFound("Usuário não encontrado.");
-            }
-
+            if (user == null) return NotFound("Usuário não encontrado.");
             return Ok(user);
         }
-        /// <summary>
-        /// Obtém os detalhes de um usuário específico pelo seu ID.
-        /// </summary>
+
         [Authorize(Roles = "Administrador, Colaborador")]
         [HttpGet("{id}")]
         [ProducesResponseType(typeof(UserDto), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(StatusCodes.Status403Forbidden)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         public async Task<IActionResult> GetUserById(int id)
         {
             var user = await _userService.GetUserByIdAsync(id);
-            if (user == null)
-            {
-                return NotFound("Usuário não encontrado.");
-            }
+            if (user == null) return NotFound("Usuário não encontrado.");
             return Ok(user);
         }
 
-        /// <summary>
-        /// Atualiza as informações de um usuário (nome, email).
-        /// </summary>
         [Authorize]
         [HttpPut("{id}")]
         [ProducesResponseType(typeof(UserDto), StatusCodes.Status200OK)]
-        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        [ProducesResponseType(typeof(string), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
         [ProducesResponseType(StatusCodes.Status403Forbidden)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
         public async Task<IActionResult> UpdateUser(int id, [FromBody] UserUpdateDto userDto)
         {
-
             var userIdFromToken = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-
-            // 4. Pega a role do usuário que está no token JWT
             var userRole = User.FindFirst(ClaimTypes.Role)?.Value;
-
-            // Validação de segurança
-            // Se o ID da rota é diferente do ID do token E o usuário não é um Administrador...
             if (userIdFromToken != id.ToString() && userRole != "Administrador")
             {
-                // Retorna 403 Forbidden, pois o usuário não tem permissão para alterar este recurso.
-                return Forbid(); 
+                return Forbid();
             }
-            var updatedUser = await _userService.UpdateUserAsync(id, userDto);
-            if (updatedUser == null)
+            try
             {
-                return NotFound("Usuário não encontrado.");
+                 var updatedUser = await _userService.UpdateUserAsync(id, userDto);
+                 if (updatedUser == null) return NotFound("Usuário não encontrado.");
+                 return Ok(updatedUser);
             }
-            return Ok(updatedUser);
+            catch(Exception ex) { return BadRequest(ex.Message); }
         }
 
-        /// <summary>
-        /// Atualiza o papel (role) de um usuário (ex: promove para Colaborador).
-        /// </summary>
         [Authorize(Roles = "Administrador")]
         [HttpPut("{id}/role")]
-        [ProducesResponseType(StatusCodes.Status200OK)]
-        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(string), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(string), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(StatusCodes.Status403Forbidden)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         public async Task<IActionResult> UpdateUserRole(int id, [FromBody] UpdateUserRoleDto request)
         {
@@ -122,50 +190,33 @@ namespace API.Controllers.UserRep // Ajuste para o seu namespace
             {
                 return BadRequest("Tipo de usuário inválido. Valores aceitos: Doador, Colaborador, Administrador.");
             }
-
             var success = await _userService.UpdateUserRoleAsync(id, novoTipoEnum);
-            if (!success)
-            {
-                return NotFound("Usuário não encontrado ou não foi possível atualizar o papel.");
-            }
-
+            if (!success) return NotFound("Usuário não encontrado ou não foi possível atualizar o papel.");
             return Ok("Papel do usuário atualizado com sucesso.");
         }
 
-        /// <summary>
-        /// Deleta um usuário do sistema.
-        /// </summary>
         [Authorize]
         [HttpDelete("{id}")]
         [ProducesResponseType(StatusCodes.Status204NoContent)]
+        [ProducesResponseType(typeof(string), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(StatusCodes.Status403Forbidden)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
-        [ProducesResponseType(StatusCodes.Status403Forbidden)] // Adiciona o possível retorno de erro
-        [ProducesResponseType(StatusCodes.Status400BadRequest)] // Adiciona o possível retorno de erro
         public async Task<IActionResult> DeleteUser(int id)
         {
-
-            var userIdFromToken = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+             var userIdFromToken = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
             var userRole = User.FindFirst(ClaimTypes.Role)?.Value;
-
-            // Regra de segurança 1: Um usuário não pode deletar a si mesmo.
             if (userIdFromToken == id.ToString())
             {
                 return BadRequest("Não é permitido deletar a própria conta através deste endpoint.");
             }
-
-            // Regra de segurança 2: Apenas administradores podem deletar outros usuários.
             if (userRole != "Administrador")
             {
-                // Se não for admin, não tem permissão.
                 return Forbid();
             }
-
             var success = await _userService.DeleteUserAsync(id);
-            if (!success)
-            {
-                return NotFound("Usuário não encontrado.");
-            }
-            return NoContent(); // 204 No Content é a resposta padrão para um delete bem-sucedido.
+            if (!success) return NotFound("Usuário não encontrado.");
+            return NoContent();
         }
     }
 }
