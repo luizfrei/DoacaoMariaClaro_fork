@@ -9,33 +9,35 @@ using Domain.Interfaces;
 using Infrastructure.Repositories;
 using Application.Interfaces;
 using Application.Services;
+// --- ADICIONE ESTE USING ---
+using System.Text.Json.Serialization; 
 
 var builder = WebApplication.CreateBuilder(args);
 
 // --- Adicionar serviços ao contêiner ---
 
-// 1. Configuração do DbContext com PostgreSQL
+// 1. Configuração do DbContext
 if (builder.Environment.IsDevelopment())
 {
-    // Se estiver a rodar localmente (dotnet run), usa o SQLite.
     Console.WriteLine("Ambiente de Desenvolvimento: Usando banco de dados SQLite.");
     builder.Services.AddDbContext<AppDbContext>(options =>
         options.UseSqlite(builder.Configuration.GetConnectionString("SqliteConnection")));
 }
 else
 {
-    // Para qualquer outro ambiente (como Docker), usa o PostgreSQL.
     Console.WriteLine("Ambiente de Produção/Docker: Usando banco de dados PostgreSQL.");
     builder.Services.AddDbContext<AppDbContext>(options =>
         options.UseNpgsql(builder.Configuration.GetConnectionString("PostgresConnection")));
 }
 
-// 2. Injeção de Dependência (do nosso projeto)
+// 2. Injeção de Dependência
 builder.Services.AddScoped<IAuthRepository, AuthRepository>();
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
+// Adicione o IUserRepository se ainda não estiver aqui (necessário pelo UserService)
+builder.Services.AddScoped<IUserRepository, UserRepository>(); 
 
-// 3. Configuração do CORS (adaptado do outro projeto)
+// 3. Configuração do CORS
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowFrontend", policy =>
@@ -46,11 +48,21 @@ builder.Services.AddCors(options =>
     });
 });
 
-builder.Services.AddControllers();
-builder.Services.AddAuthorization(); // Adicionado do outro projeto
+// --- CORREÇÃO APLICADA AQUI ---
+builder.Services.AddControllers()
+    .AddJsonOptions(options =>
+    {
+        // Adiciona o conversor para que Enums sejam tratados como Strings
+        options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter()); 
+        // Opcional: Garante que a desserialização não seja case-sensitive (geralmente padrão)
+        // options.JsonSerializerOptions.PropertyNameCaseInsensitive = true; 
+    });
+// --- FIM DA CORREÇÃO ---
+
+builder.Services.AddAuthorization();
 builder.Services.AddEndpointsApiExplorer();
 
-// 4. Configuração da Autenticação JWT (combinação de ambos)
+// 4. Configuração da Autenticação JWT
 builder.Services.AddAuthentication(options =>
 {
     options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
@@ -72,11 +84,11 @@ builder.Services.AddAuthentication(options =>
         IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(tokenKey)),
         ValidateIssuer = false,
         ValidateAudience = false,
-        RoleClaimType = ClaimTypes.Role // A correção crucial para a autorização
+        RoleClaimType = ClaimTypes.Role
     };
 });
 
-// 5. Configuração do Swagger (do outro projeto, mais detalhado)
+// 5. Configuração do Swagger
 builder.Services.AddSwaggerGen(options =>
 {
     options.SwaggerDoc("v1", new OpenApiInfo
@@ -112,8 +124,6 @@ builder.Services.AddSwaggerGen(options =>
     });
 });
 
-// builder.Services.AddRouting(options => options.LowercaseUrls = true);
-
 var app = builder.Build();
 
 // --- Configuração do pipeline de requisições HTTP ---
@@ -122,16 +132,12 @@ if (app.Environment.IsDevelopment())
     app.UseSwagger();
     app.UseSwaggerUI(options =>
     {
-        // Mostra a UI do Swagger na raiz da aplicação (http://localhost:porta/)
         options.SwaggerEndpoint("/swagger/v1/swagger.json", "API Doação v1");
         options.RoutePrefix = string.Empty;
     });
 }
 
-// app.UseHttpsRedirection(); // Mantemos comentado para desenvolvimento local
-
-// Ordem correta e final do pipeline
-app.UseCors("AllowFrontend"); // Ativa a política de CORS
+app.UseCors("AllowFrontend");
 app.UseAuthentication();
 app.UseAuthorization();
 

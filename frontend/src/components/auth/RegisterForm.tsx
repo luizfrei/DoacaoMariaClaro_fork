@@ -62,20 +62,36 @@ const RegisterForm: React.FC = () => {
     try {
       // ... (chamada para registerRequest) ...
        const responseMessage = await registerRequest(userData);
-       alert(responseMessage || "Usuário cadastrado com sucesso!");
+       alert("Usuário cadastrado com sucesso!");
        router.push('/login');
 
     } catch (err) {
-      // ... (tratamento de erro) ...
+      // --- ESTE É O BLOCO DE CÓDIGO ATUALIZADO ---
        if (err instanceof AxiosError && err.response?.data) {
         const apiError = err.response.data;
-        if (typeof apiError === 'string') { setError(apiError); }
-        else if (apiError.message) { setError(apiError.message); }
-        else { setError("Ocorreu um erro ao tentar cadastrar."); }
+
+        if (typeof apiError === 'string') {
+          // Captura erros do seu catch (Exception ex)
+          setError(apiError);
+        } else if (apiError.errors) {
+          // Captura erros de validação [Required], [EmailAddress], etc.
+          // Pega a primeira mensagem de erro do primeiro campo que falhou
+          const firstErrorKey = Object.keys(apiError.errors)[0];
+          const firstErrorMessage = apiError.errors[firstErrorKey][0];
+          setError(firstErrorMessage);
+        } else if (apiError.message) {
+          // Captura outros erros estruturados
+          setError(apiError.message);
+        } else {
+          // Erro genérico se não conseguir ler a resposta
+          setError("Ocorreu um erro ao tentar cadastrar.");
+        }
       } else {
+        // Erro de rede ou outro problema
         setError("Não foi possível conectar ao servidor.");
         console.error(err);
       }
+      // --- FIM DO BLOCO ATUALIZADO ---
     } finally {
       setIsLoading(false);
     }
