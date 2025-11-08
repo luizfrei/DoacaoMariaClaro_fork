@@ -3,6 +3,7 @@ using System;
 using Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -10,9 +11,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace DoacoesONG.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20251023184358_AddTipoPessoaDocumentoToUser")]
+    partial class AddTipoPessoaDocumentoToUser
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "8.0.8");
@@ -33,37 +36,19 @@ namespace DoacoesONG.Migrations
                         .HasColumnType("INTEGER");
 
                     b.Property<string>("ExternalReference")
-                        .HasMaxLength(100)
                         .HasColumnType("TEXT");
 
                     b.Property<long?>("MercadoPagoPaymentId")
                         .HasColumnType("INTEGER");
 
                     b.Property<string>("MercadoPagoPreferenceId")
-                        .HasMaxLength(100)
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("PayerIdentificationNumber")
-                        .HasMaxLength(20)
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("PayerIdentificationType")
-                        .HasMaxLength(10)
                         .HasColumnType("TEXT");
 
                     b.Property<string>("Status")
                         .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("TipoPagamento")
-                        .HasMaxLength(50)
                         .HasColumnType("TEXT");
 
                     b.Property<decimal>("Valor")
-                        .HasColumnType("TEXT");
-
-                    b.Property<decimal?>("ValorLiquido")
                         .HasColumnType("TEXT");
 
                     b.HasKey("Id");
@@ -79,52 +64,15 @@ namespace DoacoesONG.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("INTEGER");
 
-                    b.Property<string>("Bairro")
-                        .HasMaxLength(100)
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("Cep")
-                        .HasMaxLength(9)
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("Cidade")
-                        .HasMaxLength(100)
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("ComercioEndereco")
-                        .HasMaxLength(200)
-                        .HasColumnType("TEXT");
-
-                    b.Property<DateTime>("DataCadastro")
-                        .HasColumnType("TEXT");
-
-                    b.Property<DateTime?>("DataNascimento")
-                        .HasColumnType("TEXT");
-
                     b.Property<string>("Documento")
-                        .HasMaxLength(14)
                         .HasColumnType("TEXT");
 
                     b.Property<string>("Email")
                         .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("Endereco")
-                        .HasMaxLength(200)
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("Estado")
-                        .HasMaxLength(2)
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("Genero")
-                        .HasMaxLength(50)
                         .HasColumnType("TEXT");
 
                     b.Property<string>("Nome")
                         .IsRequired()
-                        .HasMaxLength(100)
                         .HasColumnType("TEXT");
 
                     b.Property<byte[]>("PasswordHash")
@@ -134,10 +82,6 @@ namespace DoacoesONG.Migrations
                     b.Property<byte[]>("PasswordSalt")
                         .IsRequired()
                         .HasColumnType("BLOB");
-
-                    b.Property<string>("Telefone")
-                        .HasMaxLength(15)
-                        .HasColumnType("TEXT");
 
                     b.Property<int?>("TipoPessoa")
                         .HasColumnType("INTEGER");
@@ -153,7 +97,6 @@ namespace DoacoesONG.Migrations
                         new
                         {
                             Id = 1,
-                            DataCadastro = new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
                             Email = "admin@gmail.com",
                             Nome = "Admin Principal",
                             PasswordHash = new byte[] { 167, 77, 30, 12, 52, 195, 215, 134, 19, 44, 196, 98, 77, 57, 22, 183, 2, 174, 8, 111, 112, 70, 163, 109, 76, 79, 78, 93, 122, 41, 205, 196, 231, 12, 4, 32, 137, 123, 28, 58, 187, 253, 79, 228, 117, 245, 50, 94, 26, 249, 60, 126, 24, 153, 181, 146, 42, 82, 95, 241, 15, 173, 113, 28 },
