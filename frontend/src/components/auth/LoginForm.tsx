@@ -83,9 +83,9 @@ const LoginForm: React.FC = () => {
             {isLoading ? 'Entrando...' : 'Entrar'}
           </button>
         </form>
-        <a href="#" className="forgot-password-link">
+        {/* <a href="#" className="forgot-password-link">
           Esqueci minha senha
-        </a>
+        </a> */}
       </div>
     </div>
   );

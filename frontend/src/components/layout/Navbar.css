@@ -3,9 +3,9 @@
   background-color: #fff;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
   padding: 10px 5%;
-  position: sticky;
+  /* position: sticky;
   top: 0;
-  z-index: 1000;
+  z-index: 1000; */
   /* width: 100%; */ /* Correto, esta linha fica comentada */
 }
 
@@ -363,9 +363,7 @@
     transform: translateY(-50%); /* Centraliza verticalmente */
   }
   
-  .navbar-mobile-nav {
-     /* (Os estilos principais já estão definidos acima) */
-  }
+
   .navbar-logo img {
     /* 4. Mantém o logo em 150px para caber */
     width: 150px !important; 
@@ -394,10 +392,7 @@
     top: 50%;
     transform: translateY(-50%); /* Centraliza verticalmente */
   }
-  
-  .navbar-mobile-nav {
-     /* (Os estilos principais já estão definidos acima) */
-  }
+
   .navbar-logo img {
     /* Mantém o logo em 150px para caber */
     width: 150px !important; 

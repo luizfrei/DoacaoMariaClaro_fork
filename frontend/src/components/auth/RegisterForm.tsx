@@ -111,8 +111,8 @@ const RegisterForm: React.FC = () => {
            <input type="password" placeholder="Confirme sua senha" value={confirmarSenha} onChange={(e) => setConfirmarSenha(e.target.value)} required disabled={isLoading} />
 
           {/* Seleção de Tipo de Pessoa */}
-          <div className="tipo-pessoa-group" style={{ marginBottom: '15px', textAlign: 'left' }}>
-            <label style={{ marginRight: '15px' }}>
+          <div className="tipo-pessoa-group">
+            <label>
               <input type="radio" name="tipoPessoa" value="Fisica" checked={tipoPessoa === 'Fisica'} onChange={() => setTipoPessoa('Fisica')} disabled={isLoading} /> Pessoa Física
             </label>
             <label>
