@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
+import "@/components/doacao/feedbackF.css";
+import "@/components/doacao/feedbackS.css";
 import '@fortawesome/fontawesome-free/css/all.min.css';
 // import { Header } from "@/components/layout/Header"; // Header não é mais usado aqui
 

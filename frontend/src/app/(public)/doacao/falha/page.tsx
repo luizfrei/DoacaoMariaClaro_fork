@@ -2,7 +2,7 @@ import React from 'react';
 import Link from 'next/link';
 import { Header } from '@/components/layout/Header';
 import { FaTimesCircle } from 'react-icons/fa';
-import './feedback.css';
+
 
 export default function FalhaPage() {
   return (

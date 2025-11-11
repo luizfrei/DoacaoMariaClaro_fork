@@ -2,7 +2,7 @@ import React from 'react';
 import Link from 'next/link';
 import { Header } from '@/components/layout/Header';
 import { FaCheckCircle } from 'react-icons/fa';
-import './feedback.css'; // Criaremos este CSS a seguir
+
 
 export default function SucessoPage() {
   return (
