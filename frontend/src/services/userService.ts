@@ -1,6 +1,6 @@
 import { api } from './api';
-import { userAPI } from './endpoints';
-import type { UserDto, UserUpdateDto, UpdateUserRoleDto } from '@/types/user';
+import { userAPI, pagamentoAPI } from './endpoints';
+import type { UserDto, UserUpdateDto, UpdateUserRoleDto, PagamentoDto } from '@/types/user';
 
 // Tipo para a resposta paginada da API
 export type PagedUsersResponse = {
@@ -90,5 +90,15 @@ export const updateUserRoleRequest = async (id: number, data: UpdateUserRoleDto)
  */
 export const deleteUserRequest = async (id: number): Promise<any> => {
   const response = await api.delete(userAPI.delete(id));
+  return response.data;
+};
+// === ADICIONE ESTA NOVA FUNÇÃO NO FINAL ===
+/**
+ * Busca o histórico de doações do usuário autenticado.
+ * @returns Promise com a lista de doações.
+ */
+export const getMyDonationsRequest = async (): Promise<PagamentoDto[]> => {
+  // Esta é a linha que estava a dar erro 404
+  const response = await api.get<PagamentoDto[]>(pagamentoAPI.getMyDonations());
   return response.data;
 };

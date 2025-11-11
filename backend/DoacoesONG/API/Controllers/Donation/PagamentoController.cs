@@ -2,7 +2,7 @@ using MercadoPago.Config;
 using MercadoPago.Client.Common;
 using MercadoPago.Client.Payment;
 using MercadoPago.Client.Preference;
-using MercadoPago.Resource.Payment; // Importante ter este
+using MercadoPago.Resource.Payment; 
 using MercadoPago.Resource.Preference;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -13,8 +13,8 @@ using System.Linq;
 using System;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
-using System.Collections.Generic; // Para List
-using Application.Interfaces; // --- 1. ADICIONE O USING DO IEmailService ---
+using System.Collections.Generic; 
+using Application.Interfaces; 
 
 [ApiController]
 [Route("api/[controller]")]
@@ -22,15 +22,13 @@ public class PagamentoController : ControllerBase
 {
     private readonly IConfiguration _config;
     private readonly AppDbContext _context;
-
     private readonly IEmailService _emailService;
 
-    // --- 3. INJETE O IEmailService NO CONSTRUTOR ---
     public PagamentoController(IConfiguration config, AppDbContext context, IEmailService emailService)
     {
         _config = config;
         _context = context;
-        _emailService = emailService; // --- Atribua aqui
+        _emailService = emailService; 
         MercadoPagoConfig.AccessToken = _config.GetValue<string>("MercadoPago:AccessToken");
     }
 
@@ -38,6 +36,7 @@ public class PagamentoController : ControllerBase
     [HttpPost("criar-preferencia")]
     public async Task<IActionResult> CriarPreferencia([FromBody] DoacaoRequestDto request)
     {
+        // ... (o seu código existente deste método está ótimo) ...
         try
         {
             var userIdString = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
@@ -87,7 +86,6 @@ public class PagamentoController : ControllerBase
                 DataCriacao = DateTime.UtcNow,
                 ExternalReference = externalReference,
                 DoadorId = doadorId
-                // ValorLiquido e TipoPagamento serão preenchidos pelo Webhook
             };
             _context.Pagamentos.Add(novoPagamento);
             await _context.SaveChangesAsync();
@@ -104,6 +102,7 @@ public class PagamentoController : ControllerBase
     [HttpPost("webhook")]
     public async Task<IActionResult> Webhook([FromBody] MercadoPagoNotification notification)
     {
+        // ... (o seu código existente deste método está ótimo) ...
         if (notification?.Topic == "payment" && !string.IsNullOrEmpty(notification.ResourceUrl))
         {
             try
@@ -115,13 +114,11 @@ public class PagamentoController : ControllerBase
                     Payment payment = await client.GetAsync(paymentId); 
 
                     var pagamentoEmNossoDB = await _context.Pagamentos
-                        // --- 4. MUITO IMPORTANTE: Inclua o Doador (User) na consulta ---
                         .Include(p => p.Doador) 
                         .FirstOrDefaultAsync(p => p.ExternalReference == payment.ExternalReference);
 
                     if (pagamentoEmNossoDB != null)
                     {
-                        // Evita processar o mesmo webhook duas vezes
                         if(pagamentoEmNossoDB.Status == "approved")
                         {
                             return Ok("Pagamento já foi processado anteriormente.");
@@ -143,13 +140,9 @@ public class PagamentoController : ControllerBase
                             pagamentoEmNossoDB.ValorLiquido = payment.TransactionDetails.NetReceivedAmount;
                         }
 
-                        // --- 5. LÓGICA DE ENVIO DE E-MAIL ---
                         if (pagamentoEmNossoDB.Status == "approved" && pagamentoEmNossoDB.Doador != null)
                         {
-                            // Salva as alterações no banco ANTES de tentar enviar o e-mail
                             await _context.SaveChangesAsync();
-
-                            // Dispara o e-mail de agradecimento
                             try
                             {
                                 var doador = pagamentoEmNossoDB.Doador;
@@ -162,20 +155,16 @@ public class PagamentoController : ControllerBase
                                                   
                                 var plainTextContent = $"Olá {doador.Nome}, Recebemos sua doação no valor de R$ {pagamentoEmNossoDB.Valor.ToString("F2")}. Sua contribuição é muito importante e faz toda a diferença para nós. Muito obrigado! Equipe Instituto Maria Claro";
 
-                                // Usamos 'await' para garantir que o envio seja tentado
                                 await _emailService.SendEmailAsync(doador.Email, doador.Nome, subject, plainTextContent, htmlContent);
                             }
                             catch (Exception ex)
                             {
-                                // Se o e-mail falhar, o webhook não deve falhar.
-                                // Apenas registramos o erro no console.
                                 Console.WriteLine($"[AVISO SendGrid] O pagamento {payment.Id} foi APROVADO, mas o e-mail de agradecimento para {pagamentoEmNossoDB.Doador.Email} FALHOU: {ex.Message}");
                             }
                             
-                            return Ok(); // Retorna OK (já salvamos)
+                            return Ok();
                         }
                         
-                        // Salva as alterações (caso não tenha entrado no 'if' de aprovação)
                         await _context.SaveChangesAsync();
                     }
                 }
@@ -193,6 +182,38 @@ public class PagamentoController : ControllerBase
         }
         return Ok();
     }
+
+    // === ADICIONE ESTE NOVO MÉTODO ===
+    /// <summary>
+    /// Busca o histórico de doações aprovadas do usuário logado.
+    /// </summary>
+    [Authorize] // Garante que apenas usuários logados acessem
+    [HttpGet("me")] // A rota que está a dar 404
+    [ProducesResponseType(typeof(List<PagamentoDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> GetMyDonations()
+    {
+        // 1. Pega o ID do usuário a partir do token JWT
+        var userIdString = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (string.IsNullOrEmpty(userIdString) || !int.TryParse(userIdString, out var doadorId))
+        {
+            return Unauthorized("Não foi possível identificar o usuário logado.");
+        }
+
+        // 2. Busca no banco de dados
+        var doacoes = await _context.Pagamentos
+            .Where(p => p.DoadorId == doadorId && p.Status == "approved") // Apenas doações deste usuário E que foram aprovadas
+            .OrderByDescending(p => p.DataCriacao) // Mais recentes primeiro
+            .Select(p => new PagamentoDto // Mapeia para o DTO
+            {
+                DataCriacao = p.DataCriacao,
+                Valor = p.Valor,
+                Status = p.Status
+            })
+            .ToListAsync();
+
+        return Ok(doacoes); // Retorna a lista
+    }
 }
 
 // DTOs
@@ -205,4 +226,15 @@ public class MercadoPagoNotification
 
     [JsonPropertyName("topic")]
     public string? Topic { get; set; }
+}
+
+// === ADICIONE ESTE NOVO DTO NO FINAL ===
+/// <summary>
+/// DTO simples para retornar o histórico de doações.
+/// </summary>
+public class PagamentoDto
+{
+    public DateTime DataCriacao { get; set; }
+    public decimal Valor { get; set; }
+    public string Status { get; set; }
 }

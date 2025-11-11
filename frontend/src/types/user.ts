@@ -90,3 +90,13 @@ export type DecodedToken = {
   exp: number;
   iat: number;
 };
+
+// === ADICIONE ESTE NOVO TIPO ===
+/**
+ * DTO para o histórico de pagamentos (PagamentoDto.cs)
+ */
+export type PagamentoDto = {
+  dataCriacao: string; // Vem como string ISO da API
+  valor: number;
+  status: string;
+};

@@ -19,3 +19,7 @@ export const authAPI = {
 
 // Endpoints para Gerenciamento de Usuários, usando a factory CRUD
 export const userAPI = crudAPI('Users');
+
+export const pagamentoAPI = {
+  getMyDonations: () => `${BASE_URL}/Pagamento/me`,
+};
