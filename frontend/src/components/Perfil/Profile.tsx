@@ -19,8 +19,6 @@ import {
   maskTelefone,
   maskCEP
 } from '@/utils/formatters';
-
-// --- 1. IMPORTE O TOAST ---
 import toast from 'react-hot-toast';
 
 const estadosBrasileiros = [
@@ -41,8 +39,10 @@ const Profile: React.FC = () => {
   const [donationsLoading, setDonationsLoading] = useState(true);
 
   const [isEditing, setIsEditing] = useState(false);
-  // const [editError, setEditError] = useState<string | null>(null); // <-- Removido
   const [isUpdating, setIsUpdating] = useState(false); 
+  
+  // --- NOVO ESTADO (Para o loading do ViaCEP) ---
+  const [isCepLoading, setIsCepLoading] = useState(false); 
 
   const [editNome, setEditNome] = useState("");
   const [editEmail, setEditEmail] = useState("");
@@ -70,6 +70,7 @@ const Profile: React.FC = () => {
     setEditDocumento(docFormatado);
     setEditTelefone(data.telefone ? maskTelefone(data.telefone) : "");
     setEditCep(data.cep ? maskCEP(data.cep) : "");
+
     setEditEndereco(data.endereco || "");
     setEditBairro(data.bairro || "");
     setEditCidade(data.cidade || "");
@@ -130,17 +131,60 @@ const Profile: React.FC = () => {
   const handleCepChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setEditCep(maskCEP(e.target.value));
   };
+  
+  // --- NOVA FUNÇÃO (ViaCEP) ---
+  const handleCepBlur = async (e: React.FocusEvent<HTMLInputElement>) => {
+    const cepLimpo = limparCep(e.target.value);
 
+    // 1. Verifica se tem 8 dígitos
+    if (cepLimpo.length !== 8) {
+      return; // Não faz nada se não tiver 8 dígitos
+    }
+    
+    setIsCepLoading(true);
+    
+    try {
+      // 2. Chama a API pública do ViaCEP
+      const response = await fetch(`https://viacep.com.br/ws/${cepLimpo}/json/`);
+      const data = await response.json();
+
+      // 3. Verifica se o CEP é inválido (ViaCEP retorna {erro: true})
+      if (data.erro) {
+        toast.error("CEP não encontrado.");
+        setEditEndereco("");
+        setEditBairro("");
+        setEditCidade("");
+        setEditEstado("");
+        return;
+      }
+
+      // 4. Preenche os campos automaticamente
+      setEditEndereco(data.logradouro || "");
+      setEditBairro(data.bairro || "");
+      setEditCidade(data.localidade || "");
+      setEditEstado(data.uf || "");
+      
+      // Opcional: Focar no campo "Endereço" para o usuário digitar o número
+      document.getElementById("endereco")?.focus();
+      
+    } catch (err) {
+      console.error("Erro ao buscar CEP:", err);
+      toast.error("Não foi possível buscar o CEP. Tente novamente.");
+    } finally {
+      setIsCepLoading(false);
+    }
+  };
+  // --- FIM DA FUNÇÃO ViaCEP ---
+
+  // Função para enviar a atualização
   const handleUpdate = async (e: React.FormEvent) => {
     e.preventDefault(); 
-    // setEditError(null); // <-- Removido
     setIsUpdating(true); 
 
     const documentoLimpo = limparDocumento(editDocumento);
     const telefoneLimpo = limparTelefone(editTelefone);
     const cepLimpo = limparCep(editCep);
 
-    // --- 2. SUBSTITUA 'setEditError' POR 'toast.error' ---
     if (documentoLimpo.length > 0) {
         if (editTipoPessoa === 'Fisica' && !isValidCPF(documentoLimpo)) {
             toast.error("CPF inválido. Verifique os dígitos.");
@@ -183,7 +227,6 @@ const Profile: React.FC = () => {
 
     try {
         await updateUserRequest(user.id, updateData);
-        // --- 3. SUBSTITUA O 'alert' POR 'toast.success' ---
         toast.success("Perfil atualizado com sucesso!");
         setIsEditing(false); 
         
@@ -194,7 +237,6 @@ const Profile: React.FC = () => {
         setLoading(false);
 
     } catch (err) {
-        // --- 4. SUBSTITUA O 'setEditError' NO CATCH ---
         if (err instanceof AxiosError && err.response?.data) {
             const apiError = err.response.data;
             let message = "Erro ao atualizar perfil.";
@@ -231,10 +273,12 @@ const Profile: React.FC = () => {
     <>
       <header className="topbar">Perfil</header>
       <ActionBar />
+      
       <div className="perfil-container">
         <h1 className="perfil-nome">{isEditing ? 'Editar Perfil' : user.nome}</h1>
 
         {isEditing ? (
+          // --- MODO DE EDIÇÃO (COM DROPDOWNS E MÁSCARAS) ---
           <form onSubmit={handleUpdate} className='edit-form' style={{width: '100%', maxWidth: '600px', display: 'flex', flexDirection: 'column', gap: '25px'}}>
             
             {/* Card 1: Dados Obrigatórios e Documentos */}
@@ -317,25 +361,27 @@ const Profile: React.FC = () => {
                    <input 
                      type="text" 
                      id="cep" 
-                     placeholder="XXXXX-XXX" 
+                     placeholder={isCepLoading ? "Buscando..." : "XXXXX-XXX"} // <-- MUDANÇA
                      value={editCep} 
                      onChange={handleCepChange} 
-                     disabled={isUpdating}
+                     onBlur={handleCepBlur} // <-- MUDANÇA (Aciona o ViaCEP)
+                     disabled={isUpdating || isCepLoading} // <-- MUDANÇA
                      maxLength={9} 
                    />
                 </div>
 
                 <div className="form-group">
                    <label htmlFor="endereco">Endereço (Rua, N°, Compl.):</label>
-                   <input type="text" id="endereco" value={editEndereco} onChange={(e) => setEditEndereco(e.target.value)} disabled={isUpdating} />
+                   {/* --- MUDANÇA: Desabilita enquanto o CEP carrega --- */}
+                   <input type="text" id="endereco" value={editEndereco} onChange={(e) => setEditEndereco(e.target.value)} disabled={isUpdating || isCepLoading} />
                 </div>
                 <div className="form-group">
                    <label htmlFor="bairro">Bairro:</label>
-                   <input type="text" id="bairro" value={editBairro} onChange={(e) => setEditBairro(e.target.value)} disabled={isUpdating} />
+                   <input type="text" id="bairro" value={editBairro} onChange={(e) => setEditBairro(e.target.value)} disabled={isUpdating || isCepLoading} />
                 </div>
                 <div className="form-group">
                    <label htmlFor="cidade">Cidade:</label>
-                   <input type="text" id="cidade" value={editCidade} onChange={(e) => setEditCidade(e.target.value)} disabled={isUpdating} />
+                   <input type="text" id="cidade" value={editCidade} onChange={(e) => setEditCidade(e.target.value)} disabled={isUpdating || isCepLoading} />
                 </div>
 
                 <div className="form-group">
@@ -344,7 +390,7 @@ const Profile: React.FC = () => {
                      id="estado" 
                      value={editEstado} 
                      onChange={(e) => setEditEstado(e.target.value)} 
-                     disabled={isUpdating}
+                     disabled={isUpdating || isCepLoading} // <-- MUDANÇA
                    >
                      <option value="">Selecione...</option>
                      {estadosBrasileiros.map(uf => (
@@ -358,13 +404,10 @@ const Profile: React.FC = () => {
                    <input type="text" id="comercioEndereco" value={editComercioEndereco} onChange={(e) => setEditComercioEndereco(e.target.value)} disabled={isUpdating} />
                 </div>
 
-                 {/* --- 5. REMOVA O <p> DE ERRO --- */}
-                 {/* {editError && <p className="error-message" ... >{editError}</p>} */}
-
                  <div className="edit-actions">
                      <button type="button" onClick={() => { setIsEditing(false); user && preencherFormEdicao(user); }} disabled={isUpdating} className='cancel-button'>Cancelar</button>
-                     <button type="submit" disabled={isUpdating} className='save-button'>
-                        {isUpdating ? 'Salvando...' : 'Salvar Alterações'}
+                     <button type="submit" disabled={isUpdating || isCepLoading} className='save-button'>
+                        {isUpdating ? 'Salvando...' : (isCepLoading ? 'Aguarde o CEP...' : 'Salvar Alterações')}
                      </button>
                  </div>
             </div>
