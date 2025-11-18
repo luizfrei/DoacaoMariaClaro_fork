@@ -8,7 +8,6 @@ import "./Profile.css";
 import { useRouter } from 'next/navigation';
 import { AxiosError } from 'axios';
 import { isValidCPF, isValidCNPJ } from "@/utils/validators";
-// --- 1. IMPORTE A ACTIONBAR E FORMATADORES (AGORA COM MÁSCARAS) ---
 import { ActionBar } from '@/components/layout/ActionBar';
 import { 
   formatDataParaInput, 
@@ -21,7 +20,9 @@ import {
   maskCEP
 } from '@/utils/formatters';
 
-// --- 2. LISTA DE ESTADOS BRASILEIROS ---
+// --- 1. IMPORTE O TOAST ---
+import toast from 'react-hot-toast';
+
 const estadosBrasileiros = [
   'AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA', 'MT', 'MS', 
   'MG', 'PA', 'PB', 'PR', 'PE', 'PI', 'RJ', 'RN', 'RS', 'RO', 'RR', 'SC', 
@@ -40,7 +41,7 @@ const Profile: React.FC = () => {
   const [donationsLoading, setDonationsLoading] = useState(true);
 
   const [isEditing, setIsEditing] = useState(false);
-  const [editError, setEditError] = useState<string | null>(null); 
+  // const [editError, setEditError] = useState<string | null>(null); // <-- Removido
   const [isUpdating, setIsUpdating] = useState(false); 
 
   const [editNome, setEditNome] = useState("");
@@ -57,13 +58,11 @@ const Profile: React.FC = () => {
   const [editComercioEndereco, setEditComercioEndereco] = useState("");
   const [editDataNascimento, setEditDataNascimento] = useState(""); 
 
-  // Preenche o formulário de edição com os dados atuais
   const preencherFormEdicao = (data: UserDto) => {
     setEditNome(data.nome);
     setEditEmail(data.email);
     setEditTipoPessoa(data.tipoPessoa);
     
-    // Aplica máscaras aos dados que vêm do banco
     let docFormatado = data.documento || "";
     if (data.tipoPessoa === 'Fisica' && docFormatado) docFormatado = maskCPF(docFormatado);
     if (data.tipoPessoa === 'Juridica' && docFormatado) docFormatado = maskCNPJ(docFormatado);
@@ -71,7 +70,6 @@ const Profile: React.FC = () => {
     setEditDocumento(docFormatado);
     setEditTelefone(data.telefone ? maskTelefone(data.telefone) : "");
     setEditCep(data.cep ? maskCEP(data.cep) : "");
-
     setEditEndereco(data.endereco || "");
     setEditBairro(data.bairro || "");
     setEditCidade(data.cidade || "");
@@ -81,7 +79,6 @@ const Profile: React.FC = () => {
     setEditDataNascimento(formatDataParaInput(data.dataNascimento)); 
   };
   
-  // Busca todos os dados (Perfil e Doações)
   useEffect(() => {
     const fetchAllData = async () => {
       try {
@@ -113,19 +110,10 @@ const Profile: React.FC = () => {
     fetchAllData();
   }, []); 
 
-  // --- 3. HELPERS PARA LIMPAR MÁSCARAS ANTES DE ENVIAR ---
-  const limparDocumento = (doc: string): string => {
-    return doc.replace(/[^\d]/g, ""); 
-  };
-  const limparTelefone = (tel: string): string => {
-    return tel.replace(/[^\d]/g, "");
-  };
-  const limparCep = (cep: string): string => {
-    return cep.replace(/[^\d]/g, "");
-  };
-  // --- FIM DOS HELPERS ---
+  const limparDocumento = (doc: string): string => doc.replace(/[^\d]/g, ""); 
+  const limparTelefone = (tel: string): string => tel.replace(/[^\d]/g, "");
+  const limparCep = (cep: string): string => cep.replace(/[^\d]/g, "");
 
-  // --- 4. HANDLERS PARA APLICAR MÁSCARAS AO DIGITAR ---
   const handleDocumentoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const valor = e.target.value;
     if (editTipoPessoa === 'Fisica') {
@@ -133,103 +121,99 @@ const Profile: React.FC = () => {
     } else if (editTipoPessoa === 'Juridica') {
       setEditDocumento(maskCNPJ(valor));
     } else {
-      setEditDocumento(valor); // Caso nenhum tipo esteja selecionado
+      setEditDocumento(valor); 
     }
   };
-
   const handleTelefoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setEditTelefone(maskTelefone(e.target.value));
   };
-
   const handleCepChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setEditCep(maskCEP(e.target.value));
   };
-  // --- FIM DOS HANDLERS DE MÁSCARA ---
 
-
-  // Função para enviar a atualização
   const handleUpdate = async (e: React.FormEvent) => {
     e.preventDefault(); 
-      setEditError(null); 
-      setIsUpdating(true); 
+    // setEditError(null); // <-- Removido
+    setIsUpdating(true); 
 
-      // --- 5. LIMPA OS DADOS MASCARADOS ANTES DE VALIDAR/ENVIAR ---
-      const documentoLimpo = limparDocumento(editDocumento);
-      const telefoneLimpo = limparTelefone(editTelefone);
-      const cepLimpo = limparCep(editCep);
+    const documentoLimpo = limparDocumento(editDocumento);
+    const telefoneLimpo = limparTelefone(editTelefone);
+    const cepLimpo = limparCep(editCep);
 
-      // Validação do Documento (Frontend)
-      if (documentoLimpo.length > 0) {
-          if (editTipoPessoa === 'Fisica' && !isValidCPF(documentoLimpo)) {
-              setEditError("CPF inválido. Verifique os dígitos.");
-              setIsUpdating(false);
-              return;
-          }
-          if (editTipoPessoa === 'Juridica' && !isValidCNPJ(documentoLimpo)) {
-              setEditError("CNPJ inválido. Verifique os dígitos.");
-              setIsUpdating(false);
-              return;
-          }
-           if (!editTipoPessoa) {
-             setEditError("Selecione o tipo de pessoa (Física ou Juridica) para o documento informado.");
-             setIsUpdating(false);
-             return;
-           }
-      } else if (editTipoPessoa) {
-           setEditError("CPF/CNPJ é obrigatório ao selecionar um Tipo de Pessoa.");
+    // --- 2. SUBSTITUA 'setEditError' POR 'toast.error' ---
+    if (documentoLimpo.length > 0) {
+        if (editTipoPessoa === 'Fisica' && !isValidCPF(documentoLimpo)) {
+            toast.error("CPF inválido. Verifique os dígitos.");
+            setIsUpdating(false);
+            return;
+        }
+        if (editTipoPessoa === 'Juridica' && !isValidCNPJ(documentoLimpo)) {
+            toast.error("CNPJ inválido. Verifique os dígitos.");
+            setIsUpdating(false);
+            return;
+        }
+         if (!editTipoPessoa) {
+           toast.error("Selecione o tipo de pessoa (Física ou Juridica) para o documento informado.");
            setIsUpdating(false);
            return;
-      }
+         }
+    } else if (editTipoPessoa) {
+         toast.error("CPF/CNPJ é obrigatório ao selecionar um Tipo de Pessoa.");
+         setIsUpdating(false);
+         return;
+    }
 
-      if (!user) return; 
+    if (!user) return; 
 
-      const updateData: UserUpdateDto = {
-          nome: editNome,
-          email: editEmail,
-          tipoPessoa: editTipoPessoa,
-          documento: documentoLimpo.length > 0 ? documentoLimpo : undefined,
-          telefone: telefoneLimpo.length > 0 ? telefoneLimpo : undefined,
-          cep: cepLimpo.length > 0 ? cepLimpo : undefined,
-          endereco: editEndereco || undefined,
-          bairro: editBairro || undefined,
-          cidade: editCidade || undefined,
-          estado: editEstado || undefined,
-          genero: editGenero || undefined,
-          comercioEndereco: editComercioEndereco || undefined,
-          dataNascimento: editDataNascimento || undefined
-      };
+    const updateData: UserUpdateDto = {
+        nome: editNome,
+        email: editEmail,
+        tipoPessoa: editTipoPessoa,
+        documento: documentoLimpo.length > 0 ? documentoLimpo : undefined,
+        telefone: telefoneLimpo.length > 0 ? telefoneLimpo : undefined,
+        cep: cepLimpo.length > 0 ? cepLimpo : undefined,
+        endereco: editEndereco || undefined,
+        bairro: editBairro || undefined,
+        cidade: editCidade || undefined,
+        estado: editEstado || undefined,
+        genero: editGenero || undefined,
+        comercioEndereco: editComercioEndereco || undefined,
+        dataNascimento: editDataNascimento || undefined
+    };
 
-      try {
-          await updateUserRequest(user.id, updateData);
-          alert("Perfil atualizado com sucesso!");
-          setIsEditing(false); 
-          
-          setLoading(true);
-          const profileData = await getMyProfile();
-          setUser(profileData);
-          preencherFormEdicao(profileData);
-          setLoading(false);
+    try {
+        await updateUserRequest(user.id, updateData);
+        // --- 3. SUBSTITUA O 'alert' POR 'toast.success' ---
+        toast.success("Perfil atualizado com sucesso!");
+        setIsEditing(false); 
+        
+        setLoading(true);
+        const profileData = await getMyProfile();
+        setUser(profileData);
+        preencherFormEdicao(profileData);
+        setLoading(false);
 
-      } catch (err) {
-          if (err instanceof AxiosError && err.response?.data) {
-              const apiError = err.response.data;
-              let message = "Erro ao atualizar perfil.";
-              if (typeof apiError === 'string') {
-                  message = apiError;
-              } else if (apiError.errors) {
-                  const firstErrorKey = Object.keys(apiError.errors)[0];
-                  message = apiError.errors[firstErrorKey][0];
-              } else if (apiError.message || apiError.title) {
-                  message = apiError.message || apiError.title;
-              }
-              setEditError(message);
-          } else {
-              setEditError("Não foi possível conectar ao servidor. Tente novamente.");
-              console.error(err);
-          }
-      } finally {
-          setIsUpdating(false); 
-      }
+    } catch (err) {
+        // --- 4. SUBSTITUA O 'setEditError' NO CATCH ---
+        if (err instanceof AxiosError && err.response?.data) {
+            const apiError = err.response.data;
+            let message = "Erro ao atualizar perfil.";
+            if (typeof apiError === 'string') {
+                message = apiError;
+            } else if (apiError.errors) {
+                const firstErrorKey = Object.keys(apiError.errors)[0];
+                message = apiError.errors[firstErrorKey][0];
+            } else if (apiError.message || apiError.title) {
+                message = apiError.message || apiError.title;
+            }
+            toast.error(message);
+        } else {
+            toast.error("Não foi possível conectar ao servidor. Tente novamente.");
+            console.error(err);
+        }
+    } finally {
+        setIsUpdating(false); 
+    }
   };
 
   // --- Renderização ---
@@ -246,14 +230,11 @@ const Profile: React.FC = () => {
   return (
     <>
       <header className="topbar">Perfil</header>
-      {/* --- ADICIONE A ACTIONBAR AQUI --- */}
       <ActionBar />
-      
       <div className="perfil-container">
         <h1 className="perfil-nome">{isEditing ? 'Editar Perfil' : user.nome}</h1>
 
         {isEditing ? (
-          // --- MODO DE EDIÇÃO (COM DROPDOWNS E MÁSCARAS) ---
           <form onSubmit={handleUpdate} className='edit-form' style={{width: '100%', maxWidth: '600px', display: 'flex', flexDirection: 'column', gap: '25px'}}>
             
             {/* Card 1: Dados Obrigatórios e Documentos */}
@@ -286,7 +267,7 @@ const Profile: React.FC = () => {
                      id="documento"
                      placeholder={editTipoPessoa === 'Fisica' ? "CPF (___.___.___-__)" : editTipoPessoa === 'Juridica' ? "CNPJ (__.___.___/____-__)" : "Selecione o tipo acima"}
                      value={editDocumento}
-                     onChange={handleDocumentoChange} // <--- USA MÁSCARA
+                     onChange={handleDocumentoChange} 
                      disabled={isUpdating || !editTipoPessoa}
                      maxLength={editTipoPessoa === 'Fisica' ? 14 : 18} 
                   />
@@ -297,7 +278,6 @@ const Profile: React.FC = () => {
             <div className="card">
                 <h2 className="card-title">Dados Extras (Não Obrigatório)</h2>
                 
-                {/* --- MUDANÇA PARA SELECT (GÊNERO) --- */}
                 <div className="form-group">
                    <label htmlFor="genero">Gênero:</label>
                    <select 
@@ -319,7 +299,6 @@ const Profile: React.FC = () => {
                    <input type="date" id="dataNascimento" value={editDataNascimento} onChange={(e) => setEditDataNascimento(e.target.value)} disabled={isUpdating} />
                 </div>
                 
-                {/* --- USA MÁSCARA (TELEFONE) --- */}
                 <div className="form-group">
                    <label htmlFor="telefone">Telefone / Celular:</label>
                    <input 
@@ -333,7 +312,6 @@ const Profile: React.FC = () => {
                    />
                 </div>
 
-                {/* --- USA MÁSCARA (CEP) --- */}
                 <div className="form-group">
                    <label htmlFor="cep">CEP:</label>
                    <input 
@@ -360,7 +338,6 @@ const Profile: React.FC = () => {
                    <input type="text" id="cidade" value={editCidade} onChange={(e) => setEditCidade(e.target.value)} disabled={isUpdating} />
                 </div>
 
-                {/* --- MUDANÇA PARA SELECT (ESTADO) --- */}
                 <div className="form-group">
                    <label htmlFor="estado">Estado (UF):</label>
                    <select 
@@ -381,10 +358,11 @@ const Profile: React.FC = () => {
                    <input type="text" id="comercioEndereco" value={editComercioEndereco} onChange={(e) => setEditComercioEndereco(e.target.value)} disabled={isUpdating} />
                 </div>
 
-                 {editError && <p className="error-message" style={{ color: 'red', marginTop: '10px', textAlign: 'center' }}>{editError}</p>}
+                 {/* --- 5. REMOVA O <p> DE ERRO --- */}
+                 {/* {editError && <p className="error-message" ... >{editError}</p>} */}
 
                  <div className="edit-actions">
-                     <button type="button" onClick={() => { setIsEditing(false); setEditError(null); user && preencherFormEdicao(user); }} disabled={isUpdating} className='cancel-button'>Cancelar</button>
+                     <button type="button" onClick={() => { setIsEditing(false); user && preencherFormEdicao(user); }} disabled={isUpdating} className='cancel-button'>Cancelar</button>
                      <button type="submit" disabled={isUpdating} className='save-button'>
                         {isUpdating ? 'Salvando...' : 'Salvar Alterações'}
                      </button>
@@ -393,9 +371,8 @@ const Profile: React.FC = () => {
             
           </form>
         ) : (
-          // --- MODO DE VISUALIZAÇÃO (Com máscaras) ---
+          // --- MODO DE VISUALIZAÇÃO (Sem alterações) ---
           <>
-            {/* Card 1: Dados Principais */}
             <div className="card">
               <h2 className="card-title">Meus Dados</h2>
               <div className="info-grid">
@@ -407,7 +384,6 @@ const Profile: React.FC = () => {
               <h3 className="card-subtitle">Documentos</h3>
               <div className="info-grid">
                 <div className="info-item"><strong>Tipo de Pessoa:</strong> <span>{user.tipoPessoa || 'Não informado'}</span></div>
-                {/* --- APLICA MÁSCARA NA VISUALIZAÇÃO --- */}
                 <div className="info-item"><strong>CPF/CNPJ:</strong> <span>{user.tipoPessoa === 'Fisica' ? maskCPF(user.documento || '') : user.tipoPessoa === 'Juridica' ? maskCNPJ(user.documento || '') : 'Não informado'}</span></div>
               </div>
                <div className="actions">
@@ -415,11 +391,9 @@ const Profile: React.FC = () => {
                </div>
             </div>
 
-            {/* Card 2: Dados Extras */}
             <div className="card">
               <h2 className="card-title">Dados Extras (Não Obrigatório)</h2>
               <div className="info-grid">
-                {/* --- APLICA MÁSCARA NA VISUALIZAÇÃO --- */}
                 <div className="info-item"><strong>Telefone:</strong> <span>{user.telefone ? maskTelefone(user.telefone) : 'Não informado'}</span></div>
                 <div className="info-item"><strong>Gênero:</strong> <span>{user.genero || 'Não informado'}</span></div>
                 <div className="info-item"><strong>Data Nasc.:</strong> <span>{formatDataExibicao(user.dataNascimento)}</span></div>

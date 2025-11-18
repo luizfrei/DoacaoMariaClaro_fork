@@ -8,6 +8,9 @@ import { AxiosError } from "axios";
 import { isValidCPF, isValidCNPJ } from "@/utils/validators";
 import { ActionBar } from '@/components/layout/ActionBar';
 
+// --- 1. IMPORTE O TOAST ---
+import toast from 'react-hot-toast';
+
 const RegisterForm: React.FC = () => {
   const [nome, setNome] = useState("");
   const [email, setEmail] = useState("");
@@ -15,7 +18,7 @@ const RegisterForm: React.FC = () => {
   const [confirmarSenha, setConfirmarSenha] = useState("");
   const [tipoPessoa, setTipoPessoa] = useState<TipoPessoa>('Fisica');
   const [documento, setDocumento] = useState("");
-  const [error, setError] = useState<string | null>(null);
+  // const [error, setError] = useState<string | null>(null); // <-- Removido
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
 
@@ -25,21 +28,22 @@ const RegisterForm: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError(null);
+    // setError(null); // <-- Removido
 
+    // --- 2. SUBSTITUA 'setError' POR 'toast.error' ---
     if (senha !== confirmarSenha) {
-      setError("As senhas não coincidem!");
+      toast.error("As senhas não coincidem!");
       return;
     }
 
     const documentoLimpo = limparDocumento(documento);
 
     if (tipoPessoa === 'Fisica' && !isValidCPF(documentoLimpo)) {
-      setError("CPF inválido. Verifique os dígitos.");
+      toast.error("CPF inválido. Verifique os dígitos.");
       return;
     }
     if (tipoPessoa === 'Juridica' && !isValidCNPJ(documentoLimpo)) { 
-      setError("CNPJ inválido. Verifique os dígitos.");
+      toast.error("CNPJ inválido. Verifique os dígitos.");
       return;
     }
     
@@ -55,26 +59,27 @@ const RegisterForm: React.FC = () => {
 
     try {
        await registerRequest(userData);
-       alert("Usuário cadastrado com sucesso!");
+       // --- 3. SUBSTITUA O 'alert' POR 'toast.success' ---
+       toast.success("Usuário cadastrado com sucesso!");
        router.push('/login'); 
 
     } catch (err) {
+       // --- 4. SUBSTITUA O 'setError' NO CATCH ---
        if (err instanceof AxiosError && err.response?.data) {
         const apiError = err.response.data;
-
         if (typeof apiError === 'string') {
-          setError(apiError);
+          toast.error(apiError);
         } else if (apiError.errors) {
           const firstErrorKey = Object.keys(apiError.errors)[0];
           const firstErrorMessage = apiError.errors[firstErrorKey][0];
-          setError(firstErrorMessage);
+          toast.error(firstErrorMessage);
         } else if (apiError.message) {
-          setError(apiError.message);
+          toast.error(apiError.message);
         } else {
-          setError("Ocorreu um erro ao tentar cadastrar.");
+          toast.error("Ocorreu um erro ao tentar cadastrar.");
         }
       } else {
-        setError("Não foi possível conectar ao servidor.");
+        toast.error("Não foi possível conectar ao servidor.");
         console.error(err);
       }
     } finally {
@@ -83,11 +88,9 @@ const RegisterForm: React.FC = () => {
   };
 
   return (
-    <> {/* <--- CORREÇÃO AQUI (removido o comentário com erro) */}
+    <> 
       <header className="topbar">Cadastro</header>
-      
       <ActionBar />
-      
       <div className="cadastro-container">
         <div className="form-box">
           <h2>Cadastro</h2>
@@ -116,7 +119,8 @@ const RegisterForm: React.FC = () => {
               maxLength={tipoPessoa === 'Fisica' ? 14 : 18} 
             />
 
-            {error && <p className="error-message" style={{color: 'red', marginBottom: '10px'}}>{error}</p>}
+            {/* --- 5. REMOVA O <p> DE ERRO --- */}
+            {/* {error && <p className="error-message" style={{color: 'red', marginBottom: '10px'}}>{error}</p>} */}
 
             <button type="submit" disabled={isLoading}>
               {isLoading ? 'Cadastrando...' : 'Cadastrar'}

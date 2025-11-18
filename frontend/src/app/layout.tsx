@@ -3,13 +3,13 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import "@/components/doacao/feedbackF.css";
 import "@/components/doacao/feedbackS.css";
-// import { Header } from "@/components/layout/Header"; // Header não é mais usado aqui
+// import '@fortawesome/fontawesome-free/css/all.min.css'; // (Corretamente removido)
 
-// 1. Importe o AuthProvider
 import { AuthProvider } from "@/contexts/AuthContext";
-
-// 2. Importe o Footer que acabamos de criar
 import Footer from "@/components/layout/Footer"; 
+
+// --- 1. IMPORTE O TOASTER ---
+import { Toaster } from 'react-hot-toast';
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -26,14 +26,21 @@ export default function RootLayout({
   return (
     <html lang="pt-BR">
       <body className={inter.className}>
-        {/* 3. Envolva tudo com o AuthProvider */}
         <AuthProvider>
-          {/* 'children' agora representa suas páginas (que já contêm o Header)
-            como /page.tsx, /login/page.tsx, etc.
-          */}
+          {/* --- 2. ADICIONE O COMPONENTE TOASTER AQUI --- */}
+          {/* Ele vai apanhar todas as chamadas 'toast()' da aplicação */}
+          <Toaster 
+            position="top-right" 
+            toastOptions={{
+              duration: 5000, // 5 segundos
+              style: {
+                background: '#333',
+                color: '#fff',
+              },
+            }}
+          />
+          
           <main>{children}</main>
-
-          {/* 4. Adicione o Footer aqui, fora do 'main' */}
           <Footer />
         </AuthProvider>
       </body>
