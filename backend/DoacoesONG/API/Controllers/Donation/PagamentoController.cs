@@ -32,7 +32,7 @@ public class PagamentoController : ControllerBase
         MercadoPagoConfig.AccessToken = _config.GetValue<string>("MercadoPago:AccessToken");
     }
 
-    // ... (O seu método [HttpPost("criar-preferencia")] existente. Não precisa de o alterar.) ...
+    // ... (O seu método [HttpPost("criar-preferencia")] existentdae. Não precisa de o alterar.) ...
     [Authorize]
     [HttpPost("criar-preferencia")]
     public async Task<IActionResult> CriarPreferencia([FromBody] DoacaoRequestDto request)

@@ -10,6 +10,7 @@ on:
   pull_request:
     branches:
       - develop
+      - main # O CI agora será executado para Pull Requests na main
     paths:
       - 'frontend/**'
 
