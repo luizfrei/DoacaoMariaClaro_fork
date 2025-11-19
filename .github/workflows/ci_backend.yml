@@ -3,6 +3,7 @@ name: Backend CI - Build .NET
 on:
   push:
     branches:
+      - main
       - develop
     paths:
       - 'backend/DoacoesONG/**' # Aciona apenas quando o código no backend muda tedasdg
